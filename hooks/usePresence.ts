@@ -1,40 +1,41 @@
 "use client";
 import { useEffect, useState } from "react";
+import { collection, doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp, collection, onSnapshot } from "firebase/firestore";
 
 export function usePresence(
   documentId: string,
-  user: { uid: string; name: string } | null
+  user: { uid: string; displayName: string } | null
 ) {
-  const [users, setUsers] = useState<{ name: string; uid: string }[]>([]);
+  const [users, setUsers] = useState<{ uid: string; displayName: string }[]>([]);
 
   useEffect(() => {
-    if (!documentId || !user) return;
+    if (!documentId || !user) return; // exit if no user or doc
 
     const presenceRef = collection(db, "documents", documentId, "presence");
     const userDoc = doc(presenceRef, user.uid);
 
-    const updatePresence = () => {
-      setDoc(userDoc, { name: user.name, uid: user.uid, lastSeen: serverTimestamp() }, { merge: true });
-    };
-    updatePresence();
-    const interval = setInterval(updatePresence, 5000);
+    // Update presence for current user
+    setDoc(
+      userDoc,
+      { displayName: user.displayName, lastSeen: serverTimestamp() },
+      { merge: true }
+    );
 
+    // Listen for all active users
     const unsub = onSnapshot(presenceRef, (snap) => {
-      const active: any[] = [];
-      const now = Date.now();
+      const active: { uid: string; displayName: string }[] = [];
       snap.docs.forEach((d) => {
         const data = d.data();
-        const lastSeen = data.lastSeen?.toMillis?.() || 0;
-        if (now - lastSeen < 15000) active.push({ name: data.name, uid: data.uid });
+        active.push({ uid: data.uid || d.id, displayName: data.displayName || "Anonymous" });
       });
       setUsers(active);
     });
 
     return () => {
-      clearInterval(interval);
       unsub();
+      // Optionally remove user presence on unmount
+      // deleteDoc(userDoc);
     };
   }, [documentId, user]);
 
