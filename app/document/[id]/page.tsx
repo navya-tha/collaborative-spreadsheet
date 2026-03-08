@@ -4,10 +4,9 @@ import { useParams } from "next/navigation";
 import { useDocument } from "@/hooks/useDocument";
 
 export default function DocumentPage() {
-  const params = useParams();
-  const documentId = params?.id;
-
-  const { loaded } = useDocument(documentId || ""); // track loading
+ const params = useParams();
+const documentId = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
+const { loaded } = useDocument(documentId); // always a string now
 
   if (!documentId) return <div className="flex justify-center mt-20">Loading spreadsheet...</div>;
   if (!loaded) return <div className="flex justify-center mt-20">Loading spreadsheet...</div>; // wait for Firestore
