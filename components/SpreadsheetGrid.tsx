@@ -1,8 +1,9 @@
+// components/SpreadsheetGrid.tsx
 "use client";
+import { useState } from "react";
 import Cell from "./Cell";
 import { useDocument } from "@/hooks/useDocument";
 import { evaluateFormula } from "@/utils/formula";
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePresence } from "@/hooks/usePresence";
 
@@ -16,31 +17,32 @@ function columnLetter(index: number) {
 export default function SpreadsheetGrid({ documentId }: { documentId: string }) {
   const { cells, updateCell, saving, loaded } = useDocument(documentId);
   const { user } = useAuth();
-
-  // ✅ Always call usePresence to avoid hooks order issues
-  const users = usePresence(documentId, user);
-
   const [selectedCell, setSelectedCell] = useState("A1");
   const [formula, setFormula] = useState(cells[selectedCell] || "");
 
+  const activeUsers = usePresence(documentId, user);
+
   if (!loaded) return <div className="mt-10 text-gray-500">Loading spreadsheet...</div>;
 
+  // ✅ Define handleFormulaChange here
   function handleFormulaChange(value: string) {
-    setFormula(value);
     updateCell(selectedCell, value);
+    setFormula(value);
   }
 
   return (
-    <div className="flex flex-col items-center mt-6 w-full">
+    <div className="flex flex-col items-center mt-6">
       {/* Active Users */}
-      <div className="flex gap-2 mb-2">
-        {users.map((u) => (
-          <div key={u.uid} className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full bg-green-500" />
-            <span className="text-sm">{u.displayName}</span>
-          </div>
-        ))}
-      </div>
+      {activeUsers.length > 0 && (
+        <div className="flex gap-3 mb-4 overflow-x-auto w-full max-w-[1100px]">
+          {activeUsers.map((u) => (
+            <div key={u.uid} className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded-full bg-green-500"></span>
+              <span className="text-sm">{u.displayName}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Formula Bar */}
       <div className="mb-2 w-full max-w-[1100px]">
@@ -61,7 +63,7 @@ export default function SpreadsheetGrid({ documentId }: { documentId: string }) 
         <div className="text-sm text-gray-500">{saving ? "Saving..." : "Saved ✓"}</div>
       </div>
 
-      {/* Spreadsheet */}
+      {/* Spreadsheet Grid */}
       <div className="overflow-auto border border-gray-300 inline-block">
         {/* Column headers */}
         <div className="grid bg-gray-100" style={{ gridTemplateColumns: `60px repeat(${COLS}, 100px)` }}>
