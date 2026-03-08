@@ -1,65 +1,137 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
-export default function Home() {
+export default function Dashboard() {
+  const { user, login, logout } = useAuth();
+  const router = useRouter();
+  const [docs, setDocs] = useState<any[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+
+  useEffect(() => {
+    const q = query(collection(db, "documents"), orderBy("updatedAt", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        updatedAt: d.data().updatedAt?.toDate?.() || null,
+      }));
+      setDocs(list);
+    });
+    return () => unsub();
+  }, []);
+
+  const createDocument = async () => {
+  if (!user?.uid) return;
+
+  const docRef = await addDoc(collection(db, "documents"), {
+    title: newTitle.trim() || "Untitled Document",
+    owner: user.uid,      // ✅ MUST have owner
+    cells: {},            // empty spreadsheet
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  setNewTitle("");
+  router.push(`/document/${docRef.id}`);
+};
+
+  const deleteDocument = async (id: string) => {
+    if (!confirm("Delete this sheet?")) return;
+    await deleteDoc(doc(db, "documents", id));
+  };
+
+  const updateTitle = async (id: string, title: string) => {
+    await updateDoc(doc(db, "documents", id), { title, updatedAt: serverTimestamp() });
+  };
+
+  if (!user)
+    return (
+      <div className="flex flex-col items-center mt-20">
+        <h1 className="text-3xl font-bold mb-6">Please Log In</h1>
+        <button
+          onClick={login}
+          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Login with Google
+        </button>
+      </div>
+    );
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex flex-col items-center mt-20 p-6">
+      <h1 className="text-3xl font-bold mb-6">Spreadsheet Dashboard</h1>
+
+      <div className="mb-6 flex gap-2 items-center">
+        <input
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Enter document title"
+          className="border px-3 py-2 rounded outline-none w-64"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+        <button
+          onClick={createDocument}
+          className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Create New Document
+        </button>
+        <button
+          onClick={logout}
+          className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Logout
+        </button>
+      </div>
+
+      <div className="w-full max-w-3xl">
+        <h2 className="text-xl font-semibold mb-2">All Documents</h2>
+        {docs.length === 0 && <p>No documents yet.</p>}
+
+        <ul>
+          {docs.map((d) => (
+            <li
+              key={d.id}
+              className="flex justify-between items-center p-3 border-b hover:bg-gray-50"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+              <input
+                value={d.title}
+                onChange={(e) => updateTitle(d.id, e.target.value)}
+                className="border-b border-gray-300 text-lg font-medium outline-none"
+              />
+              <span className="text-sm text-gray-500">
+                Last updated: {d.updatedAt ? d.updatedAt.toLocaleString() : "N/A"}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => router.push(`/document/${d.id}`)}
+                  className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Open
+                </button>
+                <button
+                  onClick={() => deleteDocument(d.id)}
+                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
